@@ -1,0 +1,190 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Shuffle } from 'lucide-react';
+
+export default function RandomPicker() {
+  const [lists, setLists] = useState([
+    { id: 1, name: 'リスト1', itemsText: '項目A\n項目B\n項目C', pickCount: 1 }
+  ]);
+  const [results, setResults] = useState([]);
+  const resultsRef = useRef(null);
+  const listsEndRef = useRef(null);
+
+  // localStorageから読み込み
+  useEffect(() => {
+    const saved = localStorage.getItem('randomPickerLists');
+    if (saved) {
+      try {
+        setLists(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load saved lists:', e);
+      }
+    }
+  }, []);
+
+  // localStorageに保存
+  useEffect(() => {
+    localStorage.setItem('randomPickerLists', JSON.stringify(lists));
+  }, [lists]);
+
+  const addList = () => {
+    const newId = Math.max(...lists.map(l => l.id), 0) + 1;
+    setLists([...lists, { id: newId, name: `リスト${newId}`, itemsText: '', pickCount: 1 }]);
+    setTimeout(() => {
+      listsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const removeList = (id) => {
+    setLists(lists.filter(l => l.id !== id));
+  };
+
+  const updateListName = (id, name) => {
+    setLists(lists.map(l => l.id === id ? { ...l, name } : l));
+  };
+
+  const updatePickCount = (id, count) => {
+    if (count === '') {
+      setLists(lists.map(l => l.id === id ? { ...l, pickCount: '' } : l));
+      return;
+    }
+    const numCount = Math.max(1, parseInt(count) || 1);
+    setLists(lists.map(l => l.id === id ? { ...l, pickCount: numCount } : l));
+  };
+
+  const updateItemsText = (id, text) => {
+    setLists(lists.map(l => l.id === id ? { ...l, itemsText: text } : l));
+  };
+
+  const addItem = (listId) => {
+    setLists(lists.map(l => 
+      l.id === listId ? { ...l, itemsText: l.itemsText + '\n' } : l
+    ));
+  };
+
+  const updateItem = (listId, index, value) => {
+    // 不要になったので削除
+  };
+
+  const removeItem = (listId, index) => {
+    // 不要になったので削除
+  };
+
+  const pickRandom = () => {
+    const newResults = lists.map(list => {
+      const validItems = list.itemsText
+        .split('\n')
+        .map(item => item.trim())
+        .filter(item => item !== '');
+      
+      if (validItems.length === 0) {
+        return { listName: list.name, items: ['(項目なし)'] };
+      }
+      
+      const count = list.pickCount === '' ? 1 : list.pickCount;
+      const pickCount = Math.min(count, validItems.length);
+      const shuffled = [...validItems].sort(() => Math.random() - 0.5);
+      const picked = shuffled.slice(0, pickCount);
+      
+      return { listName: list.name, items: picked };
+    });
+    setResults(newResults);
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+          ランダム選出アプリ
+        </h1>
+
+        <div className="space-y-6 mb-8">
+          {lists.map((list) => (
+            <div key={list.id} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="text"
+                  value={list.name}
+                  onChange={(e) => updateListName(list.id, e.target.value)}
+                  className="flex-1 text-lg font-semibold border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-2 py-1"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">選出数:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={list.pickCount}
+                    onChange={(e) => updatePickCount(list.id, e.target.value)}
+                    onBlur={(e) => {
+                      if (e.target.value === '') {
+                        updatePickCount(list.id, '1');
+                      }
+                    }}
+                    className="w-16 border border-gray-300 rounded px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={() => removeList(list.id)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  disabled={lists.length === 1}
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+
+              <textarea
+                value={list.itemsText}
+                onChange={(e) => updateItemsText(list.id, e.target.value)}
+                placeholder="項目を入力（1行に1項目）&#10;例:&#10;項目1&#10;項目2&#10;項目3"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[120px]"
+                rows={6}
+              />
+            </div>
+          ))}
+          <div ref={listsEndRef} />
+        </div>
+
+        <div className="flex gap-4 mb-8">
+          <button
+            onClick={addList}
+            className="flex-1 bg-white text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-md flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            リストを追加
+          </button>
+          <button
+            onClick={pickRandom}
+            className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-blue-600 transition-colors shadow-md flex items-center justify-center gap-2"
+          >
+            <Shuffle size={20} />
+            ランダム選出
+          </button>
+        </div>
+
+        {results.length > 0 && (
+          <div ref={resultsRef} className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">選出結果</h2>
+            <div className="space-y-3">
+              {results.map((result, index) => (
+                <div key={index} className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
+                  <div className="font-semibold text-gray-700 mb-2">
+                    {result.listName}:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {result.items.map((item, itemIndex) => (
+                      <span key={itemIndex} className="px-3 py-1 bg-white text-purple-600 font-bold rounded-full shadow-sm">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
